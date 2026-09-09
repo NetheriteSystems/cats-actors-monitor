@@ -1,0 +1,14 @@
+# Scala
+.idea
+.bloop
+.bsp
+.metals
+out
+project/project
+target
+
+# Sbt
+build.sbt.semanticdb
+
+# Config
+local.conf
