@@ -1,7 +1,8 @@
-package com.netherite_systems.catsactors.monitor
+package com.netherite_systems.catsactors.monitor.shared.services
 
 import cats.effect.IO
 import cats.syntax.traverse.*
+import com.netherite_systems.catsactors.monitor.shared.model.{ActorSnapshot, ActorTreeSnapshot}
 import com.suprnation.actor.ActorRef.NoSendActorRef
 import com.suprnation.actor.ActorSystem
 import com.suprnation.typelevel.actors.syntax.{ActorRefSyntaxOps, ActorSystemDebugOps}

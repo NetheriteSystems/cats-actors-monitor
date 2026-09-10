@@ -1,4 +1,4 @@
-package com.netherite_systems.catsactors.monitor
+package com.netherite_systems.catsactors.monitor.config
 
 case class MonitorConfig(
   host: String = "0.0.0.0",

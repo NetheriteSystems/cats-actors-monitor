@@ -1,7 +1,7 @@
-package com.netherite_systems.catsactors.monitor
+package com.netherite_systems.catsactors.monitor.shared.model
 
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.*
+import io.circe.{Decoder, Encoder}
 import sttp.tapir.Schema
 
 case class ActorSnapshot(

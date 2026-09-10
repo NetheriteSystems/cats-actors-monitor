@@ -1,13 +1,13 @@
-package com.netherite_systems.catsactors.monitor.dashboard
+package com.netherite_systems.catsactors.monitor.features.dashboard.page
 
-import com.netherite_systems.htmfx2.HtmxAttributes.*
+import com.netherite_systems.htmfx4.HtmxAttributes.*
 import scalatags.Text.all.*
 
 object DashboardPage {
 
   private val pageTitle = tag("title")
 
-  def build(summaryEndpointPath: String, treeEndpointPath: String, pollingSeconds: Int): Tag =
+  def build(summaryEndpointPath: String, treeEndpointPath: String, statusEndpointPath: String, pollingSeconds: Int): Tag =
     html(attr("data-theme") := "business")(
       head(
         meta(charset := "UTF-8"),
@@ -15,7 +15,7 @@ object DashboardPage {
         pageTitle("cats-actors Monitor"),
         link(href  := "https://cdn.jsdelivr.net/npm/daisyui@5", rel            := "stylesheet", attr("type") := "text/css"),
         link(href  := "https://cdn.jsdelivr.net/npm/daisyui@5/themes.css", rel := "stylesheet", attr("type") := "text/css"),
-        script(src := "https://unpkg.com/htmx.org@2.0.4"),
+        script(src := "https://cdn.jsdelivr.net/npm/htmx.org@4.0.0"),
         script(src := "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4")
       ),
       body(cls := "min-h-screen bg-base-200 p-4")(
@@ -49,11 +49,22 @@ object DashboardPage {
           div(cls := "card card-border bg-base-100 shadow-md")(
             div(cls := "card-body")(
               h2(cls := "card-title")("Actor Tree"),
-              div(id := "actor-tree", hxGet := treeEndpointPath, hxTrigger := s"every ${pollingSeconds}s", hxSwap := "innerHTML")(
+              div(
+                id        := "actor-tree",
+                hxGet     := treeEndpointPath,
+                hxTrigger := "load",
+                hxSwap    := "innerHTML"
+              )(
                 div(cls := "flex items-center gap-2")(
                   span(cls := "loading loading-spinner loading-sm text-primary"),
                   span("Loading actors...")
                 )
+              ),
+              div(
+                id        := "status-poller",
+                hxGet     := statusEndpointPath,
+                hxTrigger := s"every ${pollingSeconds}s",
+                hxSwap    := "none"
               )
             )
           )

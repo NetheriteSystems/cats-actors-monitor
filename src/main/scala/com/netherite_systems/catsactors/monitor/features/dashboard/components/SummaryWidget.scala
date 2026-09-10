@@ -1,16 +1,18 @@
-package com.netherite_systems.catsactors.monitor.dashboard
+package com.netherite_systems.catsactors.monitor.features.dashboard.components
 
 import cats.effect.IO
+import com.netherite_systems.catsactors.monitor.shared.model.ActorTreeSnapshot
 import com.netherite_systems.htmfx.*
-import com.netherite_systems.catsactors.monitor.ActorTreeSnapshot
 import scalatags.Text.all.*
 
-object SummaryComponent {
+object SummaryWidget {
 
   def build: HtmFx[IO, ActorTreeSnapshot] =
-    HtmFx.apply[IO, ActorTreeSnapshot] { snapshot =>
-      IO.pure(render(snapshot))
-    }
+    HtmFx
+      .apply[IO, ActorTreeSnapshot] { snapshot =>
+        IO.pure(render(snapshot))
+      }
+      .withPath("api/summary")
 
   private def render(snapshot: ActorTreeSnapshot): Tag =
     div(cls := "stats stats-horizontal shadow-lg w-full")(
@@ -37,7 +39,7 @@ object SummaryComponent {
       div(cls := "stat")(
         div(cls := "stat-title")("Uptime"),
         div(cls := "stat-value text-info")(formatUptime(snapshot.uptimeSeconds)),
-        div(cls := "stat-desc")(s"polling every 2s")
+        div(cls := "stat-desc")("polling every 2s")
       )
     )
 

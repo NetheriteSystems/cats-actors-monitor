@@ -32,7 +32,6 @@ lazy val root = project
       "com.github.cloudmark.cats-actors" %% "cats-actors" % "2.2.0",
       /* htmfx */
       "com.netherite_systems"            %% "htmfx4"              % "0.1.0-SNAPSHOT",
-      "com.netherite_systems"            %% "htmfx2"              % "0.1.0-SNAPSHOT",
       /* Tapir http4s bridge */
       "com.softwaremill.sttp.tapir"      %% "tapir-http4s-server" % tapirVersion,
       /* http4s */
@@ -45,6 +44,7 @@ lazy val root = project
       "ch.qos.logback"                    % "logback-classic"     % "1.5.18",
       /* Testing */
       "org.typelevel"                    %% "weaver-cats"         % "0.13.0"               % Test,
+      "org.http4s"                       %% "http4s-ember-client" % http4sVersion          % Test,
       "com.github.cloudmark.cats-actors" %% "cats-actors-testkit" % "2.2.0"                % Test
     )
   )
