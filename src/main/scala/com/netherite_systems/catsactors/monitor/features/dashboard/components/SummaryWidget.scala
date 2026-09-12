@@ -16,20 +16,20 @@ object SummaryWidget {
 
   def renderHeaderBadges(snapshot: ActorTreeSnapshot): Tag =
     div(style := "display:none")(
-      div(id := "header-system-name-oob", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-primary")(
+      div(id := "header-system-name", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-primary")(
         snapshot.systemName
       ),
-      div(id := "header-uptime-oob", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-on-surface")(
+      div(id := "header-uptime", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-on-surface")(
         formatUptime(snapshot.uptimeSeconds)
       ),
-      div(id := "header-actors-oob", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-primary")(
+      div(id := "header-actors", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-primary")(
         f"${snapshot.totalActors}%,d"
       ),
-      div(id := "header-mailbox-oob", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-on-surface")(
+      div(id := "header-mailbox", attr("hx-swap-oob") := "true", cls := "font-code-sm text-code-sm text-on-surface")(
         f"${snapshot.totalMailbox}%,d msgs"
       ),
-      div(id := "sidebar-mailbox-bar-oob", attr("hx-swap-oob") := "true", style := s"width: ${mailboxPercent(snapshot)}%"),
-      div(id := "sidebar-avg-mailbox-oob", attr("hx-swap-oob") := "true", cls := "font-label-sm text-label-sm text-secondary")(
+      div(id := "sidebar-mailbox-bar", attr("hx-swap-oob") := "true", style := s"width: ${mailboxPercent(snapshot)}%"),
+      div(id := "sidebar-avg-mailbox", attr("hx-swap-oob") := "true", cls := "font-label-sm text-label-sm text-secondary")(
         s"${snapshot.totalMailbox} msgs"
       )
     )
@@ -45,17 +45,7 @@ object SummaryWidget {
     )
 
   private def vitalsRow(snapshot: ActorTreeSnapshot): Tag =
-    div(cls := "grid grid-cols-1 sm:grid-cols-3 gap-space-sm w-full")(
-      metricCard(
-        label = "Active Actors",
-        dotColor = "bg-secondary",
-        value = f"${snapshot.totalActors}%,d",
-        valueColor = "text-on-surface",
-        sub = "LIVE",
-        subColor = "text-secondary",
-        barPercent = 100,
-        barColor = "bg-secondary"
-      ),
+    div(cls := "grid grid-cols-1 sm:grid-cols-2 gap-space-sm w-full")(
       metricCard(
         label = "Total Mailbox",
         labelRight = Some("q/depth"),

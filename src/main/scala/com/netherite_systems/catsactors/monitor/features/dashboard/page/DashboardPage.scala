@@ -13,7 +13,7 @@ object DashboardPage {
   private val styleTag     = tag("style")
   private val headerTag    = tag("header")
 
-  def build(summaryEndpointPath: String, treeEndpointPath: String, statusEndpointPath: String, pollingSeconds: Int): Tag =
+  def build(treeEndpointPath: String, statusEndpointPath: String, pollingSeconds: Int): Tag =
     html(cls := "dark", lang := "en")(
       head(
         meta(charset := "utf-8"),
@@ -41,7 +41,7 @@ object DashboardPage {
       body(cls := "bg-background font-body-md text-on-surface antialiased")(
         header(pollingSeconds),
         sidebar,
-        mainContent(summaryEndpointPath, treeEndpointPath, statusEndpointPath, pollingSeconds),
+        mainContent(treeEndpointPath, statusEndpointPath, pollingSeconds),
         interactionScript
       )
     )
@@ -162,7 +162,6 @@ object DashboardPage {
       )
 
   private def mainContent(
-    summaryEndpointPath: String,
     treeEndpointPath: String,
     statusEndpointPath: String,
     pollingSeconds: Int
@@ -170,13 +169,7 @@ object DashboardPage {
     div(cls := "pl-64")(
       mainTag(cls := "relative pt-16 min-h-screen bg-background w-full px-gutter-lg")(
         div(cls := "flex flex-col w-full")(
-          div(
-            id        := "summary",
-            hxGet     := summaryEndpointPath,
-            hxTrigger := s"every ${pollingSeconds}s",
-            hxSwap    := "innerHTML"
-          )(loadingPlaceholder("Connecting to actor system...")),
-          div(cls := "grid grid-cols-1 xl:grid-cols-12 gap-space-md w-full items-start mt-space-md")(
+          div(cls := "grid grid-cols-1 xl:grid-cols-12 gap-space-md w-full items-start")(
             div(cls := "xl:col-span-7")(
               div(
                 id        := "actor-tree",

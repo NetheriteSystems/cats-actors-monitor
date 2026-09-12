@@ -57,18 +57,6 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     }
   }
 
-  test("dashboard has summary polling with HTMX attributes") {
-    withSystem("d-poll") { system =>
-      MonitorTestClient(system) { client =>
-        client.getDashboard().map { body =>
-          expect(body.contains("hx-get=\"api/summary\"")) &&
-          expect(body.contains("hx-trigger=\"every 2s\"")) &&
-          expect(body.contains("hx-swap=\"innerHTML\""))
-        }
-      }
-    }
-  }
-
   test("dashboard has tree load-once trigger") {
     withSystem("d-tree1") { system =>
       MonitorTestClient(system) { client =>
@@ -85,79 +73,6 @@ object DashboardRoutesSuite extends SimpleIOSuite {
         client.getDashboard().map { body =>
           expect(body.contains("hx-get=\"api/status\"")) &&
           expect(body.contains("hx-swap=\"none\""))
-        }
-      }
-    }
-  }
-
-  test("summary shows Active Actors metric") {
-    withSystem("s-count") { system =>
-      for {
-        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "c1")
-        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "c2")
-        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "c3")
-        result <- MonitorTestClient(system) { client =>
-          client.getSummary().map { body =>
-            expect(body.contains("Active Actors")) &&
-            expect(body.contains("LIVE"))
-          }
-        }
-      } yield result
-    }
-  }
-
-  test("summary shows Total Mailbox metric") {
-    withSystem("s-mailbox") { system =>
-      for {
-        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "m1")
-        result <- MonitorTestClient(system) { client =>
-          client.getSummary().map { body =>
-            expect(body.contains("Total Mailbox")) &&
-            expect(body.contains("queued"))
-          }
-        }
-      } yield result
-    }
-  }
-
-  test("summary shows Cluster Uptime metric") {
-    withSystem("s-uptime") { system =>
-      MonitorTestClient(system) { client =>
-        client.getSummary().map { body =>
-          expect(body.contains("Cluster Uptime"))
-        }
-      }
-    }
-  }
-
-  test("summary includes system name") {
-    withSystem("my-system") { system =>
-      MonitorTestClient(system) { client =>
-        client.getSummary().map { body =>
-          expect(body.contains("my-system"))
-        }
-      }
-    }
-  }
-
-  test("summary renders vitals strip for empty system") {
-    withSystem("s-empty") { system =>
-      MonitorTestClient(system) { client =>
-        client.getSummary().map { body =>
-          expect(body.contains("Active Actors")) &&
-          expect(body.contains("Total Mailbox")) &&
-          expect(body.contains("Cluster Uptime"))
-        }
-      }
-    }
-  }
-
-  test("summary has search bar") {
-    withSystem("s-search") { system =>
-      MonitorTestClient(system) { client =>
-        client.getSummary().map { body =>
-          expect(body.contains("actorSearchInput")) &&
-          expect(body.contains("filter-pill"))
         }
       }
     }
@@ -233,6 +148,17 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     }
   }
 
+  test("tree has search bar and filter pills") {
+    withSystem("t-search") { system =>
+      MonitorTestClient(system) { client =>
+        client.getTree().map { body =>
+          expect(body.contains("actorSearchInput")) &&
+          expect(body.contains("filter-pill"))
+        }
+      }
+    }
+  }
+
   test("status has OOB swap attribute for each actor") {
     withSystem("oob-oob") { system =>
       for {
@@ -273,9 +199,9 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     withSystem("oob-header") { system =>
       MonitorTestClient(system) { client =>
         client.getStatus().map { body =>
-          expect(body.contains("header-system-name-oob")) &&
-          expect(body.contains("header-uptime-oob")) &&
-          expect(body.contains("header-actors-oob"))
+          expect(body.contains("header-system-name")) &&
+          expect(body.contains("header-uptime")) &&
+          expect(body.contains("header-actors"))
         }
       }
     }
@@ -383,6 +309,18 @@ object DashboardRoutesSuite extends SimpleIOSuite {
       MonitorTestClient(system) { client =>
         client.getDag().map { body =>
           expect(body.contains("TOPOLOGY"))
+        }
+      }
+    }
+  }
+
+  test("dag includes header OOB badges") {
+    withSystem("dag-oob") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDag().map { body =>
+          expect(body.contains("header-system-name")) &&
+          expect(body.contains("header-uptime")) &&
+          expect(body.contains("header-actors"))
         }
       }
     }

@@ -53,26 +53,54 @@ object ActorTreeWidget {
     )
 
   private def treeToolbar: Tag =
-    div(cls := "flex items-center justify-between px-space-sm mb-space-xs")(
-      div(cls := "flex items-center gap-space-xs")(
-        span(cls := "font-label-sm text-label-sm text-on-surface-variant uppercase")("Actor Tree")
-      ),
-      div(cls := "flex items-center gap-space-xs")(
-        button(
-          cls := "bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface p-space-xs rounded flex items-center",
-          id            := "btnExpandAll",
-          attr("title") := "Expand entire tree"
-        )(
-          span(cls := "material-symbols-outlined text-[16px]")("unfold_more")
+    div(
+      cls := "flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-sm bg-surface-container-low p-space-xs rounded-lg mb-space-xs"
+    )(
+      div(cls := "flex-1 flex items-center gap-space-sm bg-surface-container-lowest px-space-md py-space-xs rounded")(
+        span(cls := "material-symbols-outlined text-outline text-[16px]")("search"),
+        input(
+          cls := "bg-transparent border-none outline-none text-on-surface font-code-sm text-code-sm placeholder:text-outline w-full",
+          id  := "actorSearchInput",
+          attr("placeholder") := "Search by ActorPath (e.g. /user/*), status, or mailbox size...",
+          attr("type")        := "text"
         ),
-        button(
-          cls := "bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface p-space-xs rounded flex items-center",
-          id            := "btnCollapseAll",
-          attr("title") := "Collapse all levels"
-        )(
-          span(cls := "material-symbols-outlined text-[16px]")("unfold_less")
+        span(cls := "font-label-sm text-label-sm text-outline bg-surface-container px-space-xs py-0.5 rounded")("ESC TO CLEAR")
+      ),
+      div(cls := "flex items-center gap-space-xs overflow-x-auto shrink-0 pb-1 lg:pb-0")(
+        filterPill("ALL ACTORS", "all", isActive = true),
+        filterPill("MAILBOX > 0", "warning", dotColor = Some("bg-primary")),
+        filterPill("TERMINATED", "failed", dotColor = Some("bg-error")),
+        filterPill("IDLE", "idle", dotColor = None),
+        div(cls := "h-4 w-px bg-surface-variant mx-space-xs"),
+        div(cls := "flex items-center gap-space-xs")(
+          button(
+            cls := "bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface p-space-xs rounded flex items-center",
+            id            := "btnExpandAll",
+            attr("title") := "Expand entire tree"
+          )(
+            span(cls := "material-symbols-outlined text-[16px]")("unfold_more")
+          ),
+          button(
+            cls := "bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface p-space-xs rounded flex items-center",
+            id            := "btnCollapseAll",
+            attr("title") := "Collapse all levels"
+          )(
+            span(cls := "material-symbols-outlined text-[16px]")("unfold_less")
+          )
         )
       )
+    )
+
+  private def filterPill(label: String, filter: String, isActive: Boolean = false, dotColor: Option[String] = None): Tag =
+    button(
+      cls := s"filter-pill ${
+          if isActive then "bg-primary-container text-on-primary-container"
+          else "bg-surface-container text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+        } px-space-sm py-space-xs rounded font-label-sm text-label-sm flex items-center gap-space-xs transition-all",
+      attr("data-filter") := filter
+    )(
+      dotColor.map(c => span(cls := s"w-1.5 h-1.5 rounded-full $c")).toSeq :+
+        raw(label)
     )
 
   private def treeStatusBar(snapshot: ActorTreeSnapshot): Tag =

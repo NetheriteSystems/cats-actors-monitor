@@ -12,16 +12,14 @@ import org.http4s.headers.`Content-Type`
 
 object DashboardRoutes {
 
-  private val summaryComponent = SummaryWidget.build.withPath("api/summary")
-  private val treeComponent    = ActorTreeWidget.build.withPath("api/tree")
-  private val dagComponent     = DagWidget.build.withPath("api/dag")
+  private val treeComponent = ActorTreeWidget.build.withPath("api/tree")
+  private val dagComponent  = DagWidget.build.withPath("api/dag")
 
   def routes(
     system: ActorSystem[IO],
     config: MonitorConfig = MonitorConfig()
   ): HttpRoutes[IO] = {
     val pageTag = DashboardPage.build(
-      summaryComponent.endpointPath,
       treeComponent.endpointPath,
       "api/status",
       config.pollingIntervalSeconds
@@ -48,13 +46,6 @@ object DashboardRoutes {
       case GET -> Root / "dag" =>
         Ok(dagPageTag.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
 
-      case GET -> Root / "api" / "summary" =>
-        for {
-          snapshot <- ActorTreeCollector.collect(system)
-          html     <- summaryComponent.evaluate(snapshot)
-          resp     <- Ok(html.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
-        } yield resp
-
       case GET -> Root / "api" / "tree" =>
         for {
           snapshot <- ActorTreeCollector.collect(system)
@@ -65,8 +56,10 @@ object DashboardRoutes {
       case GET -> Root / "api" / "dag" =>
         for {
           snapshot <- ActorTreeCollector.collect(system)
-          html     <- dagComponent.evaluate(snapshot)
-          resp     <- Ok(html.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
+          dagHtml  <- dagComponent.evaluate(snapshot)
+          headerBadges = SummaryWidget.renderHeaderBadges(snapshot)
+          combined     = scalatags.Text.tags.div(dagHtml, headerBadges)
+          resp <- Ok(combined.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
         } yield resp
 
       case GET -> Root / "api" / "status" =>
