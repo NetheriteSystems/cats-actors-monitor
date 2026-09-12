@@ -1,7 +1,7 @@
 package com.netherite_systems.catsactors.monitor.features.dashboard.components
 
 import cats.effect.IO
-import com.netherite_systems.catsactors.monitor.shared.model.{ActorSnapshot, ActorTreeSnapshot}
+import com.netherite_systems.catsactors.monitor.shared.model.{ActorSnapshot, ActorTreeNode, ActorTreeSnapshot}
 import com.netherite_systems.htmfx.*
 import scalatags.Text.all.*
 
@@ -26,7 +26,7 @@ object ActorTreeWidget {
     )
 
   private def render(snapshot: ActorTreeSnapshot): Tag = {
-    val roots = buildTree(snapshot.actors)
+    val roots = snapshot.buildTree
     div(cls := "flex flex-col w-full")(
       treeHeader(snapshot, roots),
       div(cls := "bg-surface-container-lowest rounded-xl shadow-md p-space-md flex flex-col gap-space-sm")(
@@ -39,7 +39,7 @@ object ActorTreeWidget {
     )
   }
 
-  private def treeHeader(snapshot: ActorTreeSnapshot, roots: List[TreeNode]): Tag =
+  private def treeHeader(snapshot: ActorTreeSnapshot, roots: List[ActorTreeNode]): Tag =
     div(cls := "flex items-center justify-between pb-space-xs bg-surface-container-low px-space-sm py-space-xs rounded-lg mb-space-sm")(
       div(cls := "flex items-center gap-space-sm")(
         span(cls := "material-symbols-outlined text-primary text-[18px]")("account_tree"),
@@ -89,21 +89,7 @@ object ActorTreeWidget {
       )
     )
 
-  private def buildTree(actors: List[ActorSnapshot]): List[TreeNode] = {
-    val byPath = actors.map(a => a.path -> TreeNode(a, scala.collection.mutable.ListBuffer.empty)).toMap
-    val roots  = scala.collection.mutable.ListBuffer.empty[TreeNode]
-    actors.foreach { actor =>
-      actor.parentPath match {
-        case Some(parent) if byPath.contains(parent) =>
-          byPath(parent).children += byPath(actor.path)
-        case _ =>
-          roots += byPath(actor.path)
-      }
-    }
-    roots.toList
-  }
-
-  private def renderNode(node: TreeNode): Tag = {
+  private def renderNode(node: ActorTreeNode): Tag = {
     val hasChildren = node.children.nonEmpty
     val depth       = node.actor.path.count(_ == '/') - 1
     val paddingLeft = s"pl-${math.min(depth * 4, 16)}"
@@ -111,7 +97,9 @@ object ActorTreeWidget {
     div(cls := s"$paddingLeft flex flex-col gap-0.5")(
       div(
         cls := s"tree-node group flex items-center justify-between py-1 px-space-sm rounded ${nodeBackground(node.actor)} transition-colors cursor-pointer",
-        attr("data-actor-path") := node.actor.path
+        attr("data-actor-path") := node.actor.path,
+        attr("data-mailbox")    := node.actor.mailboxSize,
+        attr("data-status")     := node.actor.statusLabel
       )(
         div(cls := "flex items-center gap-space-xs min-w-0")(
           if hasChildren then
@@ -132,7 +120,7 @@ object ActorTreeWidget {
       ),
       if hasChildren then
         div(cls := "tree-children pl-4 flex flex-col gap-0.5")(
-          node.children.toList.map(renderNode).toSeq*
+          node.children.map(renderNode).toSeq*
         )
       else span()
     )
@@ -177,9 +165,4 @@ object ActorTreeWidget {
 
   private def actorId(actor: ActorSnapshot): String =
     "status-" + actor.path.replaceAll("[^a-zA-Z0-9-]", "-")
-
-  private case class TreeNode(
-    actor: ActorSnapshot,
-    children: scala.collection.mutable.ListBuffer[TreeNode]
-  )
 }

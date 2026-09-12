@@ -47,6 +47,9 @@ object DashboardPage {
     )
 
   private def header(pollingSeconds: Int): Tag =
+    pageHeader(pollingSeconds, "monitor_heart")
+
+  private[page] def pageHeader(pollingSeconds: Int, icon: String): Tag =
     headerTag(
       cls := "fixed top-0 left-0 right-0 z-50 h-16 bg-surface-container-lowest/90 backdrop-blur-md shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
     )(
@@ -77,7 +80,7 @@ object DashboardPage {
             )
           ),
           div(cls := "w-8 h-8 rounded-full bg-primary flex items-center justify-center")(
-            span(cls := "material-symbols-outlined text-on-primary text-[18px]")("monitor_heart")
+            span(cls := "material-symbols-outlined text-on-primary text-[18px]")(icon)
           )
         )
       )
@@ -99,6 +102,9 @@ object DashboardPage {
     )
 
   private def sidebar: Tag =
+    pageSidebar("hierarchy")
+
+  private[page] def pageSidebar(activePage: String): Tag =
     asideTag(
       cls := "fixed left-0 top-16 bottom-0 w-64 bg-surface-container-lowest z-40 flex flex-col p-space-md"
     )(
@@ -107,8 +113,13 @@ object DashboardPage {
         span(cls := "font-label-sm text-label-sm text-secondary bg-surface-container px-space-xs rounded")("cats-actors")
       ),
       navTag(cls := "flex flex-col gap-space-xs flex-1")(
-        sidebarLinkComponent("Actor Hierarchy", "/user", isActive = true, linkHref = "/"),
-        sidebarLinkComponent("Topology DAG", "DAG", isActive = false, linkHref = "/dag"),
+        sidebarLinkComponent("Actor Hierarchy", "/user", isActive = activePage == "hierarchy", linkHref = "/"),
+        sidebarLinkComponent(
+          "Topology DAG",
+          if activePage == "dag" then "LIVE" else "DAG",
+          isActive = activePage == "dag",
+          linkHref = "/dag"
+        ),
         sidebarLinkComponent("Dead Letter Stream", "0", isActive = false, disabled = true),
         sidebarLinkComponent("Cluster Nodes", "N/A", isActive = false, disabled = true)
       ),
@@ -186,7 +197,7 @@ object DashboardPage {
       )
     )
 
-  private def loadingPlaceholder(message: String): Tag =
+  private[page] def loadingPlaceholder(message: String): Tag =
     div(cls := "flex items-center gap-2 p-4 bg-surface-container-low rounded-lg")(
       span(cls := "material-symbols-outlined text-primary animate-spin text-[18px]")("sync"),
       span(cls := "font-code-sm text-code-sm text-on-surface-variant")(message)
@@ -385,14 +396,15 @@ object DashboardPage {
         |      pill.classList.add('bg-primary-container', 'text-on-primary-container');
         |      const filter = pill.getAttribute('data-filter');
         |      document.querySelectorAll('.tree-node').forEach(node => {
-        |        const text = node.textContent.toLowerCase();
+        |        const mailbox = parseInt(node.getAttribute('data-mailbox') || '0', 10);
+        |        const status = (node.getAttribute('data-status') || '').toUpperCase();
         |        if (filter === 'all') {
         |          node.style.display = 'flex';
-        |        } else if (filter === 'warning' && (text.includes('high') || text.includes('q: 1') || text.includes('q: 2') || text.includes('q: 3') || text.includes('q: 4') || text.includes('q: 5') || text.includes('q: 6') || text.includes('q: 7') || text.includes('q: 8') || text.includes('q: 9'))) {
+        |        } else if (filter === 'warning' && mailbox > 0) {
         |          node.style.display = 'flex';
-        |        } else if (filter === 'failed' && (text.includes('terminated') || text.includes('restarting'))) {
+        |        } else if (filter === 'failed' && status === 'TERMINATED') {
         |          node.style.display = 'flex';
-        |        } else if (filter === 'idle' && text.includes('idle')) {
+        |        } else if (filter === 'idle' && status === 'IDLE') {
         |          node.style.display = 'flex';
         |        } else if (filter !== 'all') {
         |          node.style.display = 'none';

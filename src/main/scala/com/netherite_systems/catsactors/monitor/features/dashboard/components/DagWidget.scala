@@ -1,13 +1,19 @@
 package com.netherite_systems.catsactors.monitor.features.dashboard.components
 
 import cats.effect.IO
-import com.netherite_systems.catsactors.monitor.shared.model.{ActorSnapshot, ActorTreeSnapshot}
+import com.netherite_systems.catsactors.monitor.shared.model.{ActorSnapshot, ActorTreeNode, ActorTreeSnapshot}
 import com.netherite_systems.htmfx.*
 import scalatags.Text.all.*
 
 object DagWidget {
 
-  private val svgTag = tag("svg")
+  private val svgTag          = tag("svg")
+  private val mailboxWarnAt   = 50
+  private val mailboxAccentAt = 10
+  private val nodeW           = 170
+  private val nodeH           = 90
+  private val padX            = 40
+  private val padY            = 30
 
   def build: HtmFx[IO, ActorTreeSnapshot] =
     HtmFx
@@ -23,12 +29,11 @@ object DagWidget {
     )
 
   private def vitalsBar(snapshot: ActorTreeSnapshot): Tag = {
-    val isHealthy = snapshot.healthy
     val statusDot =
-      if isHealthy then "bg-secondary animate-pulse shadow-[0_0_8px_#4edea3]"
+      if snapshot.healthy then "bg-secondary animate-pulse shadow-[0_0_8px_#4edea3]"
       else "bg-error animate-pulse shadow-[0_0_8px_#ffb4ab]"
-    val statusText  = if isHealthy then "Active Directed Graph" else "Degraded"
-    val statusColor = if isHealthy then "text-secondary" else "text-error"
+    val statusText  = if snapshot.healthy then "Active Directed Graph" else "Degraded"
+    val statusColor = if snapshot.healthy then "text-secondary" else "text-error"
     div(
       cls := "w-full bg-surface-container-lowest rounded-xl p-space-md shadow-md flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-space-md"
     )(
@@ -100,26 +105,23 @@ object DagWidget {
   }
 
   private def canvasContainer(snapshot: ActorTreeSnapshot): Tag = {
-    val layout   = computeLayout(snapshot.actors)
-    val depth    = if layout.isEmpty then 1 else layout.map(_.depth).max + 1
-    val canvasH  = depth * 160 + 80
-    val edgesSvg = renderEdges(layout)
-    val nodes    = renderNodes(layout)
-    val minimap  = renderMinimap(layout, canvasH)
+    val layout  = computeLayout(snapshot.actors)
+    val depth   = if layout.isEmpty then 1 else layout.map(_.depth).max + 1
+    val canvasH = depth * 160 + 80
     div(
       cls   := "relative w-full rounded-xl overflow-hidden bg-surface-container-lowest shadow-xl",
       style := "height: calc(100vh - 240px); min-height: 480px;"
     )(
       div(cls := "relative w-full h-full overflow-hidden", id := "dag-viewport")(
         dotGridSvg,
-        raw(edgesSvg),
+        edgeSvg(layout),
         div(style := s"position:relative; width:100%; height:${canvasH}px; min-width:100%;")(
-          nodes.toSeq*
+          renderNodes(layout).toSeq*
         ),
-        minimap,
+        renderMinimap(layout, canvasH),
         inspectorPanel
       ),
-      dagInteractionScript
+      dagInteractionScript(snapshot)
     )
   }
 
@@ -135,9 +137,9 @@ object DagWidget {
       )
     )
 
-  private def renderEdges(layout: List[LayoutNode]): String = {
-    val byPath = layout.map(n => n.actor.path -> n).toMap
-    val edges  = layout.flatMap { node =>
+  private def edgeSvg(layout: List[LayoutNode]): Tag = {
+    val byPath    = layout.map(n => n.actor.path -> n).toMap
+    val edgeItems = layout.flatMap { node =>
       node.actor.parentPath.flatMap(byPath.get).map { parent =>
         val x1          = parent.x + nodeW / 2
         val y1          = parent.y + nodeH
@@ -145,60 +147,51 @@ object DagWidget {
         val y2          = node.y
         val cp          = (y1 + y2) / 2
         val pathD       = s"M $x1 $y1 C $x1 $cp, $x2 $cp, $x2 $y2"
-        val color       = strokeColor(node.actor)
+        val color       = edgeColor(node.actor)
+        val key         = statusKey(node.actor)
         val glowId      = s"glow-${node.actor.path.hashCode.abs}"
-        val particleDur = if node.actor.mailboxSize > 10 then "0.6s" else "2.2s"
-        val particleR   = if node.actor.mailboxSize > 10 then "4" else "3"
-        val dashArray   = if node.actor.mailboxSize > 10 then "none" else "4,4"
-        val strokeW     = if node.actor.mailboxSize > 10 then "2.5" else "1.8"
+        val particleDur = if node.actor.mailboxSize > mailboxAccentAt then "0.6s" else "2.2s"
+        val particleR   = if node.actor.mailboxSize > mailboxAccentAt then "4" else "3"
+        val dashArray   = if node.actor.mailboxSize > mailboxAccentAt then "none" else "4,4"
+        val strokeW     = if node.actor.mailboxSize > mailboxAccentAt then "2.5" else "1.8"
         val dashAttr    = if dashArray == "none" then "" else s""" stroke-dasharray="$dashArray""""
         val pathTag     =
-          s"""<path d="$pathD" fill="none" stroke="$color" stroke-width="$strokeW"$dashAttr opacity="0.7" marker-end="url(#arrow-${node.actor.statusKey})"/>"""
+          s"""<path d="$pathD" fill="none" stroke="$color" stroke-width="$strokeW"$dashAttr opacity="0.7" marker-end="url(#arrow-$key)"/>"""
         val particle =
           s"""<circle r="$particleR" fill="$color" filter="url(#$glowId)"><animateMotion dur="$particleDur" repeatCount="indefinite" path="$pathD"/></circle>"""
         pathTag + particle
       }
     }
-    val defs        = svgDefs
-    val arrows      = svgArrows
-    val glowFilters = svgGlowFilters
-    s"""<svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">$defs$arrows$glowFilters${edges.mkString}</svg>"""
+    svgTag(
+      attr("xmlns") := "http://www.w3.org/2000/svg",
+      cls           := "absolute inset-0 w-full h-full pointer-events-none"
+    )(raw(edgeSvgDefs + edgeItems.mkString + """</defs>"""))
   }
 
-  private def svgDefs: String =
-    """<defs>"""
-
-  private def svgGlowFilters: String =
-    """<filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="0" flood-color="#4cd7f6" flood-opacity="0.9" stdDeviation="3"/></filter>""" +
+  private def edgeSvgDefs: String =
+    """<defs>""" +
+      """<filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="0" flood-color="#4cd7f6" flood-opacity="0.9" stdDeviation="3"/></filter>""" +
       """<filter id="glow-magenta" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="0" flood-color="#d0bcff" flood-opacity="0.8" stdDeviation="3"/></filter>""" +
       """<filter id="glow-error" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="0" flood-color="#ffb4ab" flood-opacity="0.8" stdDeviation="3"/></filter>""" +
-      """</defs>"""
-
-  private def svgArrows: String =
-    """<marker id="arrow-idle" markerWidth="6" markerHeight="6" refX="8" refY="5" orient="auto-start-reverse" viewBox="0 0 10 10"><path d="M 0 1 L 10 5 L 0 9 z" fill="#4cd7f6"/></marker>""" +
+      """<marker id="arrow-idle" markerWidth="6" markerHeight="6" refX="8" refY="5" orient="auto-start-reverse" viewBox="0 0 10 10"><path d="M 0 1 L 10 5 L 0 9 z" fill="#4cd7f6"/></marker>""" +
       """<marker id="arrow-busy" markerWidth="6" markerHeight="6" refX="8" refY="5" orient="auto-start-reverse" viewBox="0 0 10 10"><path d="M 0 1 L 10 5 L 0 9 z" fill="#d0bcff"/></marker>""" +
       """<marker id="arrow-terminated" markerWidth="6" markerHeight="6" refX="8" refY="5" orient="auto-start-reverse" viewBox="0 0 10 10"><path d="M 0 1 L 10 5 L 0 9 z" fill="#ffb4ab"/></marker>"""
 
-  private def strokeColor(actor: ActorSnapshot): String =
+  private def edgeColor(actor: ActorSnapshot): String =
     if actor.isTerminated then "#ffb4ab"
     else if !actor.isIdle then "#d0bcff"
     else "#4cd7f6"
 
-  private implicit class ActorStatusKey(a: ActorSnapshot) {
-    def statusKey: String =
-      if a.isTerminated then "terminated"
-      else if !a.isIdle then "busy"
-      else "idle"
-  }
+  private def statusKey(actor: ActorSnapshot): String =
+    if actor.isTerminated then "terminated"
+    else if !actor.isIdle then "busy"
+    else "idle"
 
   private def renderNodes(layout: List[LayoutNode]): List[Tag] =
     layout.map { ln =>
-      val actor  = ln.actor
-      val bg     = nodeBg(actor)
-      val pulse  = if actor.mailboxSize > 50 then "ring-2 ring-amber-400/80" else ""
-      val shadow = if actor.mailboxSize > 50 then "shadow-xl" else "shadow-md"
+      val actor = ln.actor
       div(
-        cls := s"dag-node absolute w-[170px] p-space-sm rounded-lg $bg $shadow $pulse hover:shadow-primary/20 transition-all cursor-pointer group",
+        cls := s"dag-node absolute w-[170px] p-space-sm rounded-lg ${nodeBg(actor)} ${nodeShadow(actor)} hover:shadow-primary/20 transition-all cursor-pointer group",
         style             := s"left:${ln.x}px; top:${ln.y}px;",
         attr("data-node") := actor.name,
         onclick           := s"dagSelectNode('${actor.name}')"
@@ -222,8 +215,11 @@ object DagWidget {
     }
 
   private def nodeBg(actor: ActorSnapshot): String =
-    if actor.mailboxSize > 50 then "bg-surface-container-high ring-2 ring-amber-400/80"
+    if actor.mailboxSize > mailboxWarnAt then "bg-surface-container-high ring-2 ring-amber-400/80"
     else "bg-surface-container-high"
+
+  private def nodeShadow(actor: ActorSnapshot): String =
+    if actor.mailboxSize > mailboxWarnAt then "shadow-xl" else "shadow-md"
 
   private def statusDotClass(actor: ActorSnapshot): String =
     if actor.isTerminated then "bg-error"
@@ -231,19 +227,23 @@ object DagWidget {
     else "bg-secondary"
 
   private def statusTextClass(actor: ActorSnapshot): String =
-    if actor.isTerminated then "text-error"
-    else if !actor.isIdle then "text-tertiary"
-    else "text-secondary"
+    actor.statusColor match {
+      case "error"     => "text-error"
+      case "primary"   => "text-tertiary"
+      case "secondary" => "text-secondary"
+      case _           => "text-secondary"
+    }
 
   private def statusChip(actor: ActorSnapshot): Tag =
-    if actor.mailboxSize > 50 then span(cls := "font-label-sm text-label-sm bg-amber-400/20 text-amber-300 px-1 rounded uppercase")("ALERT")
+    if actor.mailboxSize > mailboxWarnAt then
+      span(cls := "font-label-sm text-label-sm bg-amber-400/20 text-amber-300 px-1 rounded uppercase")("ALERT")
     else if actor.isTerminated then
       span(cls := "font-label-sm text-label-sm bg-error-container text-on-error-container px-1 rounded")("TERM")
     else if actor.childCount > 0 then span(cls := "font-label-sm text-label-sm bg-tertiary/20 text-tertiary px-1 rounded")("PARENT")
     else span(cls := "font-label-sm text-label-sm bg-surface-container text-on-surface-variant px-1 rounded")("LEAF")
 
   private def barColor(actor: ActorSnapshot): String =
-    if actor.mailboxSize > 50 then "bg-amber-400 animate-pulse"
+    if actor.mailboxSize > mailboxWarnAt then "bg-amber-400 animate-pulse"
     else if !actor.isIdle then "bg-primary"
     else "bg-secondary"
 
@@ -312,23 +312,24 @@ object DagWidget {
     )
 
   private def renderMinimap(layout: List[LayoutNode], canvasH: Int): Tag = {
-    val mmW    = 128
-    val mmH    = 80
-    val maxX   = if layout.isEmpty then 1 else layout.map(_.x + nodeW).max
-    val scaleX = mmW.toDouble / math.max(1, maxX)
-    val scaleY = mmH.toDouble / math.max(1, canvasH)
-    val dots   = layout.map { ln =>
+    val mmW      = 128
+    val mmH      = 80
+    val maxX     = if layout.isEmpty then 1 else layout.map(_.x + nodeW).max
+    val scaleX   = mmW.toDouble / math.max(1, maxX)
+    val scaleY   = mmH.toDouble / math.max(1, canvasH)
+    val byPath   = layout.map(n => n.actor.path -> n).toMap
+    val dotColor = (actor: ActorSnapshot) =>
+      if actor.isTerminated then "#ffb4ab"
+      else if !actor.isIdle then "#d0bcff"
+      else "#4cd7f6"
+    val dots = layout.map { ln =>
       val cx    = (ln.x + nodeW / 2) * scaleX
       val cy    = (ln.y + nodeH / 2) * scaleY
-      val color =
-        if ln.actor.isTerminated then "#ffb4ab"
-        else if !ln.actor.isIdle then "#d0bcff"
-        else "#4cd7f6"
-      val pulse = if ln.actor.mailboxSize > 50 then " class=\"animate-ping\"" else ""
-      s"""<circle cx="$cx" cy="$cy" r="2" fill="$color"$pulse/>"""
+      val pulse = if ln.actor.mailboxSize > mailboxWarnAt then " class=\"animate-ping\"" else ""
+      s"""<circle cx="$cx" cy="$cy" r="2" fill="${dotColor(ln.actor)}"$pulse/>"""
     }.mkString
     val lines = layout.flatMap { ln =>
-      ln.actor.parentPath.flatMap(layout.map(n => n.actor.path -> n).toMap.get).map { parent =>
+      ln.actor.parentPath.flatMap(byPath.get).map { parent =>
         val x1 = (parent.x + nodeW / 2) * scaleX
         val y1 = (parent.y + nodeH / 2) * scaleY
         val x2 = (ln.x + nodeW / 2) * scaleX
@@ -353,12 +354,18 @@ object DagWidget {
     )
   }
 
-  private def dagInteractionScript: Tag =
+  private def dagInteractionScript(snapshot: ActorTreeSnapshot): Tag = {
+    val nodeDataEntries = snapshot.actors
+      .map { a =>
+        val isBusy = !a.isIdle && !a.isTerminated
+        s""""${a.name}":{"name":"${a.name}","path":"${a.path}","mailbox":${a.mailboxSize},"childCount":${a.childCount},"status":"${a.statusLabel}","terminated":${a.isTerminated},"busy":$isBusy,"idle":${a.isIdle}}"""
+      }
+      .mkString(",")
     script(
       raw(
         s"""
         |(function() {
-        |  const nodeData = {${nodeDataJson}};
+        |  const nodeData = {$nodeDataEntries};
         |  window.dagSelectNode = function(name) {
         |    document.querySelectorAll('.dag-node').forEach(n => {
         |      n.classList.remove('ring-2', 'ring-primary');
@@ -383,7 +390,7 @@ object DagWidget {
         |      const pct = Math.min(100, Math.max(5, d.mailbox * 2));
         |      el('insp-bar').style.width = pct + '%';
         |      el('insp-bar').className = 'h-full transition-all duration-300 ' +
-        |        (d.mailbox > 50 ? 'bg-amber-400 animate-pulse' : d.busy ? 'bg-primary' : 'bg-secondary');
+        |        (d.mailbox > $mailboxWarnAt ? 'bg-amber-400 animate-pulse' : d.busy ? 'bg-primary' : 'bg-secondary');
         |    }
         |    if (el('insp-full-path')) el('insp-full-path').textContent = d.path;
         |    if (el('insp-status-text')) el('insp-status-text').textContent = d.status;
@@ -408,39 +415,18 @@ object DagWidget {
       """.stripMargin
       )
     )
-
-  private def nodeDataJson: String =
-    ""
-
-  private val nodeW = 170
-  private val nodeH = 90
-  private val padX  = 40
-  private val padY  = 30
+  }
 
   private def computeLayout(actors: List[ActorSnapshot]): List[LayoutNode] = {
-    val roots   = buildTree(actors)
+    val roots   = ActorTreeSnapshot("", 0, 0, 0, 0, 0, actors).buildTree
     val canvasW = 1000
     val hGap    = 30
     val vGap    = 70
     assignPositions(roots, padX, padY, canvasW - padX * 2, hGap, nodeH + vGap)
   }
 
-  private def buildTree(actors: List[ActorSnapshot]): List[LTreeNode] = {
-    val byPath = actors.map(a => a.path -> LTreeNode(a, scala.collection.mutable.ListBuffer.empty)).toMap
-    val roots  = scala.collection.mutable.ListBuffer.empty[LTreeNode]
-    actors.foreach { actor =>
-      actor.parentPath match {
-        case Some(parent) if byPath.contains(parent) =>
-          byPath(parent).children += byPath(actor.path)
-        case _ =>
-          roots += byPath(actor.path)
-      }
-    }
-    roots.toList
-  }
-
   private def assignPositions(
-    nodes: List[LTreeNode],
+    nodes: List[ActorTreeNode],
     x: Int,
     y: Int,
     totalW: Int,
@@ -455,7 +441,7 @@ object DagWidget {
         val nx           = x + idx * slotW + (slotW - nodeW) / 2
         val ny           = y
         val childResults =
-          if node.children.nonEmpty then assignPositions(node.children.toList, x + idx * slotW, ny + vStep, slotW, hGap, vStep)
+          if node.children.nonEmpty then assignPositions(node.children, x + idx * slotW, ny + vStep, slotW, hGap, vStep)
           else Nil
         LayoutNode(node.actor, nx, ny, depthOf(node.actor)) :: childResults
       }
@@ -463,11 +449,6 @@ object DagWidget {
 
   private def depthOf(actor: ActorSnapshot): Int =
     actor.path.count(_ == '/') - 1
-
-  private case class LTreeNode(
-    actor: ActorSnapshot,
-    children: scala.collection.mutable.ListBuffer[LTreeNode]
-  )
 
   private case class LayoutNode(
     actor: ActorSnapshot,
