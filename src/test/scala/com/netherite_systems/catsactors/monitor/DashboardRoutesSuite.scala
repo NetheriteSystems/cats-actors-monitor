@@ -24,23 +24,34 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     }
   }
 
-  test("dashboard has daisyUI theme") {
+  test("dashboard uses dark mode class") {
     withSystem("d-theme") { system =>
       MonitorTestClient(system) { client =>
         client.getDashboard().map { body =>
-          expect(body.contains("data-theme=\"business\""))
+          expect(body.contains("class=\"dark\""))
         }
       }
     }
   }
 
-  test("dashboard has HTMX and daisyUI CDN links") {
+  test("dashboard has HTMX and Tailwind CDN links") {
     withSystem("d-cdn") { system =>
       MonitorTestClient(system) { client =>
         client.getDashboard().map { body =>
-          expect(body.contains("daisyui@5")) &&
           expect(body.contains("htmx.org@4.0.0")) &&
-          expect(body.contains("@tailwindcss/browser@4"))
+          expect(body.contains("tailwindcss.com"))
+        }
+      }
+    }
+  }
+
+  test("dashboard has Material Symbols and Geist fonts") {
+    withSystem("d-fonts") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDashboard().map { body =>
+          expect(body.contains("Material+Symbols+Outlined")) &&
+          expect(body.contains("Geist")) &&
+          expect(body.contains("JetBrains+Mono"))
         }
       }
     }
@@ -79,7 +90,7 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     }
   }
 
-  test("summary reflects actor count from system") {
+  test("summary shows Active Actors metric") {
     withSystem("s-count") { system =>
       for {
         _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "c1")
@@ -87,42 +98,35 @@ object DashboardRoutesSuite extends SimpleIOSuite {
         _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "c3")
         result <- MonitorTestClient(system) { client =>
           client.getSummary().map { body =>
-            expect(body.contains("Actors")) &&
-            expect(body.contains("stat-value text-primary"))
+            expect(body.contains("Active Actors")) &&
+            expect(body.contains("LIVE"))
           }
         }
       } yield result
     }
   }
 
-  test("summary shows all actors as idle when none are busy") {
-    withSystem("s-idle") { system =>
+  test("summary shows Total Mailbox metric") {
+    withSystem("s-mailbox") { system =>
       for {
-        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "i1")
-        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "i2")
+        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "m1")
         result <- MonitorTestClient(system) { client =>
           client.getSummary().map { body =>
-            expect(body.contains("text-success")) &&
-            expect(body.contains("Idle"))
+            expect(body.contains("Total Mailbox")) &&
+            expect(body.contains("queued"))
           }
         }
       } yield result
     }
   }
 
-  test("summary shows busy count when actor is processing") {
-    withSystem("s-busy") { system =>
-      for {
-        ref    <- system.replyingActorOf(IO(ActorFixture.slowBehavior(500)), "slow")
-        _      <- ref ! "msg"
-        _      <- IO.sleep(200.millis)
-        result <- MonitorTestClient(system) { client =>
-          client.getSummary().map { body =>
-            expect(body.contains("text-warning")) &&
-            expect(body.contains("Busy"))
-          }
+  test("summary shows Cluster Uptime metric") {
+    withSystem("s-uptime") { system =>
+      MonitorTestClient(system) { client =>
+        client.getSummary().map { body =>
+          expect(body.contains("Cluster Uptime"))
         }
-      } yield result
+      }
     }
   }
 
@@ -136,15 +140,24 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     }
   }
 
-  test("summary renders all stat sections for empty system") {
+  test("summary renders vitals strip for empty system") {
     withSystem("s-empty") { system =>
       MonitorTestClient(system) { client =>
         client.getSummary().map { body =>
-          expect(body.contains("text-primary")) &&
-          expect(body.contains("text-success")) &&
-          expect(body.contains("text-warning")) &&
-          expect(body.contains("text-error")) &&
-          expect(body.contains("text-info"))
+          expect(body.contains("Active Actors")) &&
+          expect(body.contains("Total Mailbox")) &&
+          expect(body.contains("Cluster Uptime"))
+        }
+      }
+    }
+  }
+
+  test("summary has search bar") {
+    withSystem("s-search") { system =>
+      MonitorTestClient(system) { client =>
+        client.getSummary().map { body =>
+          expect(body.contains("actorSearchInput")) &&
+          expect(body.contains("filter-pill"))
         }
       }
     }
@@ -165,21 +178,20 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     }
   }
 
-  test("tree shows green idle badge for idle actor") {
+  test("tree shows IDLE status for idle actor") {
     withSystem("t-idle") { system =>
       for {
         _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "ok")
         result <- MonitorTestClient(system) { client =>
           client.getTree().map { body =>
-            expect(body.contains("badge-success")) &&
-            expect(body.contains(">idle<"))
+            expect(body.contains(">IDLE<"))
           }
         }
       } yield result
     }
   }
 
-  test("tree shows yellow busy badge for busy actor") {
+  test("tree shows BUSY status for busy actor") {
     withSystem("t-busy") { system =>
       for {
         ref    <- system.replyingActorOf(IO(ActorFixture.slowBehavior(5000)), "busy")
@@ -187,8 +199,7 @@ object DashboardRoutesSuite extends SimpleIOSuite {
         _      <- IO.sleep(200.millis)
         result <- MonitorTestClient(system) { client =>
           client.getTree().map { body =>
-            expect(body.contains("badge-warning")) &&
-            expect(body.contains(">busy<"))
+            expect(body.contains(">BUSY<"))
           }
         }
       } yield result
@@ -205,8 +216,7 @@ object DashboardRoutesSuite extends SimpleIOSuite {
         _      <- IO.sleep(200.millis)
         result <- MonitorTestClient(system) { client =>
           client.getTree().map { body =>
-            expect(body.contains("badge-info")) &&
-            expect(body.contains("mailbox:"))
+            expect(body.contains("Q:"))
           }
         }
       } yield result
@@ -217,7 +227,7 @@ object DashboardRoutesSuite extends SimpleIOSuite {
     withSystem("t-empty") { system =>
       MonitorTestClient(system) { client =>
         client.getTree().map { body =>
-          expect(body.contains("space-y-1"))
+          expect(body.contains("Actor Hierarchy Graph"))
         }
       }
     }
@@ -254,6 +264,125 @@ object DashboardRoutesSuite extends SimpleIOSuite {
       MonitorTestClient(system) { client =>
         client.getStatus().map { body =>
           expect(body.contains("display:none"))
+        }
+      }
+    }
+  }
+
+  test("status includes header OOB badges") {
+    withSystem("oob-header") { system =>
+      MonitorTestClient(system) { client =>
+        client.getStatus().map { body =>
+          expect(body.contains("header-system-name-oob")) &&
+          expect(body.contains("header-uptime-oob")) &&
+          expect(body.contains("header-actors-oob"))
+        }
+      }
+    }
+  }
+
+  test("dag page has valid HTML structure") {
+    withSystem("dag-html") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDagPage().map { body =>
+          expect(body.contains("<html")) &&
+          expect(body.contains("Topology DAG"))
+        }
+      }
+    }
+  }
+
+  test("dag page has HTMX polling for dag content") {
+    withSystem("dag-poll") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDagPage().map { body =>
+          expect(body.contains("hx-get=\"api/dag\"")) &&
+          expect(body.contains("hx-swap=\"innerHTML\""))
+        }
+      }
+    }
+  }
+
+  test("dag page has navigation back to hierarchy") {
+    withSystem("dag-nav") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDagPage().map { body =>
+          expect(body.contains("Back to Hierarchy"))
+        }
+      }
+    }
+  }
+
+  test("dag renders actor nodes") {
+    withSystem("dag-nodes") { system =>
+      for {
+        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "worker-1")
+        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "worker-2")
+        result <- MonitorTestClient(system) { client =>
+          client.getDag().map { body =>
+            expect(body.contains("worker-1")) &&
+            expect(body.contains("worker-2")) &&
+            expect(body.contains("dag-node"))
+          }
+        }
+      } yield result
+    }
+  }
+
+  test("dag renders SVG edges with particles") {
+    withSystem("dag-edges") { system =>
+      for {
+        _      <- system.replyingActorOf(IO(ActorFixture.fastBehavior), "parent")
+        result <- MonitorTestClient(system) { client =>
+          client.getDag().map { body =>
+            expect(body.contains("<svg")) &&
+            expect(body.contains("animateMotion")) &&
+            expect(body.contains("dot-matrix"))
+          }
+        }
+      } yield result
+    }
+  }
+
+  test("dag shows Stream Topology vitals bar") {
+    withSystem("dag-vitals") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDag().map { body =>
+          expect(body.contains("Stream Topology")) &&
+          expect(body.contains("Active Mesh")) &&
+          expect(body.contains("Mailbox Integrity"))
+        }
+      }
+    }
+  }
+
+  test("dag has inspector panel") {
+    withSystem("dag-insp") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDag().map { body =>
+          expect(body.contains("dag-inspector")) &&
+          expect(body.contains("ACTOR INSPECTION")) &&
+          expect(body.contains("Mailbox Queue"))
+        }
+      }
+    }
+  }
+
+  test("dag shows LIVE realtime badge") {
+    withSystem("dag-live") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDag().map { body =>
+          expect(body.contains("LIVE REALTIME"))
+        }
+      }
+    }
+  }
+
+  test("dag renders minimap") {
+    withSystem("dag-minimap") { system =>
+      MonitorTestClient(system) { client =>
+        client.getDag().map { body =>
+          expect(body.contains("TOPOLOGY"))
         }
       }
     }

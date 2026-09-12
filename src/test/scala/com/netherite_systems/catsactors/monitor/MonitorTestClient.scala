@@ -24,6 +24,12 @@ final class MonitorTestClient(client: Client[IO], baseUri: Uri) {
 
   def getStatus(): IO[String] =
     client.expect[String](Request[IO](Method.GET, baseUri / "api" / "status"))
+
+  def getDagPage(): IO[String] =
+    client.expect[String](Request[IO](Method.GET, baseUri / "dag"))
+
+  def getDag(): IO[String] =
+    client.expect[String](Request[IO](Method.GET, baseUri / "api" / "dag"))
 }
 
 object MonitorTestClient {

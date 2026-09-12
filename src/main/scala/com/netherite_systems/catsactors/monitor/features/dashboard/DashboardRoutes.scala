@@ -2,8 +2,8 @@ package com.netherite_systems.catsactors.monitor.features.dashboard
 
 import cats.effect.IO
 import com.netherite_systems.catsactors.monitor.config.MonitorConfig
-import com.netherite_systems.catsactors.monitor.features.dashboard.components.{ActorTreeWidget, SummaryWidget}
-import com.netherite_systems.catsactors.monitor.features.dashboard.page.DashboardPage
+import com.netherite_systems.catsactors.monitor.features.dashboard.components.{ActorTreeWidget, DagWidget, SummaryWidget}
+import com.netherite_systems.catsactors.monitor.features.dashboard.page.{DagPage, DashboardPage}
 import com.netherite_systems.catsactors.monitor.shared.services.ActorTreeCollector
 import com.suprnation.actor.ActorSystem
 import org.http4s.*
@@ -14,6 +14,7 @@ object DashboardRoutes {
 
   private val summaryComponent = SummaryWidget.build.withPath("api/summary")
   private val treeComponent    = ActorTreeWidget.build.withPath("api/tree")
+  private val dagComponent     = DagWidget.build.withPath("api/dag")
 
   def routes(
     system: ActorSystem[IO],
@@ -25,12 +26,17 @@ object DashboardRoutes {
       "api/status",
       config.pollingIntervalSeconds
     )
-    buildRoutes(system, pageTag)
+    val dagPageTag = DagPage.build(
+      dagComponent.endpointPath,
+      config.pollingIntervalSeconds
+    )
+    buildRoutes(system, pageTag, dagPageTag)
   }
 
   private def buildRoutes(
     system: ActorSystem[IO],
-    pageTag: scalatags.Text.all.Tag
+    pageTag: scalatags.Text.all.Tag,
+    dagPageTag: scalatags.Text.all.Tag
   ): HttpRoutes[IO] = {
     val dsl = new Http4sDsl[IO] {}
     import dsl.*
@@ -38,6 +44,9 @@ object DashboardRoutes {
     HttpRoutes.of[IO] {
       case GET -> Root =>
         Ok(pageTag.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
+
+      case GET -> Root / "dag" =>
+        Ok(dagPageTag.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
 
       case GET -> Root / "api" / "summary" =>
         for {
@@ -53,11 +62,20 @@ object DashboardRoutes {
           resp     <- Ok(html.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
         } yield resp
 
+      case GET -> Root / "api" / "dag" =>
+        for {
+          snapshot <- ActorTreeCollector.collect(system)
+          html     <- dagComponent.evaluate(snapshot)
+          resp     <- Ok(html.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
+        } yield resp
+
       case GET -> Root / "api" / "status" =>
         for {
           snapshot <- ActorTreeCollector.collect(system)
-          html = ActorTreeWidget.renderStatusBadges(snapshot)
-          resp <- Ok(html.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
+          treeBadges   = ActorTreeWidget.renderStatusBadges(snapshot)
+          headerBadges = SummaryWidget.renderHeaderBadges(snapshot)
+          combined     = scalatags.Text.tags.div(treeBadges, headerBadges)
+          resp <- Ok(combined.render).map(_.withContentType(`Content-Type`(MediaType.text.html)))
         } yield resp
     }
   }
