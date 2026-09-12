@@ -285,7 +285,7 @@ object DashboardRoutesSuite extends SimpleIOSuite {
   test("dag has inspector panel") {
     withSystem("dag-insp") { system =>
       MonitorTestClient(system) { client =>
-        client.getDag().map { body =>
+        client.getDagPage().map { body =>
           expect(body.contains("dag-inspector")) &&
           expect(body.contains("ACTOR INSPECTION")) &&
           expect(body.contains("Mailbox Queue"))
@@ -299,16 +299,6 @@ object DashboardRoutesSuite extends SimpleIOSuite {
       MonitorTestClient(system) { client =>
         client.getDag().map { body =>
           expect(body.contains("LIVE REALTIME"))
-        }
-      }
-    }
-  }
-
-  test("dag renders minimap") {
-    withSystem("dag-minimap") { system =>
-      MonitorTestClient(system) { client =>
-        client.getDag().map { body =>
-          expect(body.contains("TOPOLOGY"))
         }
       }
     }

@@ -56,13 +56,77 @@ object DagPage {
             )
           )
         ),
+        div(cls := "relative w-full")(
+          div(
+            id        := "dag-content",
+            hxGet     := dagEndpointPath,
+            hxTrigger := s"every ${pollingSeconds}s",
+            hxSwap    := "innerHTML"
+          )(
+            DashboardPage.loadingPlaceholder("Loading DAG topology...")
+          ),
+          inspectorPanel
+        )
+      )
+    )
+
+  private def inspectorPanel: Tag =
+    div(
+      cls := "absolute right-space-md top-space-md bottom-space-md w-72 xl:w-80 bg-surface-container-high/95 backdrop-blur-md rounded-xl p-space-md shadow-2xl flex flex-col justify-between overflow-y-auto z-20",
+      id := "dag-inspector"
+    )(
+      div(cls := "flex flex-col gap-space-md")(
+        div(cls := "flex items-start justify-between pb-space-xs")(
+          div(cls := "flex flex-col")(
+            span(cls := "font-label-sm text-label-sm text-primary font-mono tracking-wider uppercase")("ACTOR INSPECTION"),
+            span(cls := "font-headline-sm text-headline-sm text-on-surface", id := "insp-title")("Select a Node"),
+            span(cls := "font-code-sm text-code-sm text-on-surface-variant", id := "insp-path")("Click any actor node")
+          ),
+          span(
+            cls := "font-label-sm text-label-sm bg-surface-container text-on-surface-variant px-space-xs py-0.5 rounded font-mono",
+            id  := "insp-badge"
+          )("IDLE")
+        ),
+        div(cls := "grid grid-cols-2 gap-space-xs")(
+          div(cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col")(
+            span(cls := "font-label-sm text-label-sm text-on-surface-variant uppercase")("Mailbox Queue"),
+            div(cls := "flex items-baseline gap-1 mt-0.5")(
+              span(cls := "font-code-lg text-code-lg text-primary font-bold", id := "insp-mailbox")("0"),
+              span(cls := "font-label-sm text-label-sm text-on-surface-variant")("msgs")
+            )
+          ),
+          div(cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col")(
+            span(cls := "font-label-sm text-label-sm text-on-surface-variant uppercase")("Children"),
+            div(cls := "flex items-baseline gap-1 mt-0.5")(
+              span(cls := "font-code-lg text-code-lg text-on-surface font-bold", id := "insp-children")("0"),
+              span(cls := "font-label-sm text-label-sm text-on-surface-variant")("actors")
+            )
+          )
+        ),
+        div(cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col gap-space-xs")(
+          div(cls := "flex justify-between items-center")(
+            span(cls := "font-label-sm text-label-sm text-on-surface-variant uppercase")("Status"),
+            span(cls := "font-code-sm text-code-sm text-on-surface font-semibold", id := "insp-status-detail")("IDLE")
+          ),
+          div(cls := "w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden")(
+            div(cls := "bg-secondary h-full w-0 transition-all duration-300", id := "insp-bar")
+          )
+        ),
         div(
-          id        := "dag-content",
-          hxGet     := dagEndpointPath,
-          hxTrigger := s"every ${pollingSeconds}s",
-          hxSwap    := "innerHTML"
+          cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col gap-1 text-on-surface-variant font-label-sm text-label-sm"
         )(
-          DashboardPage.loadingPlaceholder("Loading DAG topology...")
+          div(cls := "flex justify-between")(
+            span("Path:"),
+            span(cls := "text-on-surface font-code-sm text-code-sm truncate", id := "insp-full-path")("n/a")
+          ),
+          div(cls := "flex justify-between")(
+            span("Status:"),
+            span(cls := "text-secondary font-code-sm text-code-sm", id := "insp-status-text")("IDLE")
+          ),
+          div(cls := "flex justify-between")(
+            span("Is Idle:"),
+            span(cls := "text-on-surface font-code-sm text-code-sm", id := "insp-is-idle")("true")
+          )
         )
       )
     )

@@ -117,9 +117,7 @@ object DagWidget {
         edgeSvg(layout),
         div(style := s"position:relative; width:100%; height:${canvasH}px; min-width:100%;")(
           renderNodes(layout).toSeq*
-        ),
-        renderMinimap(layout, canvasH),
-        inspectorPanel
+        )
       ),
       dagInteractionScript(snapshot)
     )
@@ -250,110 +248,6 @@ object DagWidget {
   private def mailboxPercent(actor: ActorSnapshot): Int =
     math.min(100, math.max(5, actor.mailboxSize * 2))
 
-  private def inspectorPanel: Tag =
-    div(
-      cls := "absolute right-space-md top-space-md bottom-space-md w-72 xl:w-80 bg-surface-container-high/95 backdrop-blur-md rounded-xl p-space-md shadow-2xl flex flex-col justify-between overflow-y-auto z-20",
-      id := "dag-inspector"
-    )(
-      div(cls := "flex flex-col gap-space-md")(
-        div(cls := "flex items-start justify-between pb-space-xs")(
-          div(cls := "flex flex-col")(
-            span(cls := "font-label-sm text-label-sm text-primary font-mono tracking-wider uppercase")("ACTOR INSPECTION"),
-            span(cls := "font-headline-sm text-headline-sm text-on-surface", id := "insp-title")("Select a Node"),
-            span(cls := "font-code-sm text-code-sm text-on-surface-variant", id := "insp-path")("Click any actor node")
-          ),
-          span(
-            cls := "font-label-sm text-label-sm bg-surface-container text-on-surface-variant px-space-xs py-0.5 rounded font-mono",
-            id  := "insp-badge"
-          )("IDLE")
-        ),
-        div(cls := "grid grid-cols-2 gap-space-xs")(
-          div(cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col")(
-            span(cls := "font-label-sm text-label-sm text-on-surface-variant uppercase")("Mailbox Queue"),
-            div(cls := "flex items-baseline gap-1 mt-0.5")(
-              span(cls := "font-code-lg text-code-lg text-primary font-bold", id := "insp-mailbox")("0"),
-              span(cls := "font-label-sm text-label-sm text-on-surface-variant")("msgs")
-            )
-          ),
-          div(cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col")(
-            span(cls := "font-label-sm text-label-sm text-on-surface-variant uppercase")("Children"),
-            div(cls := "flex items-baseline gap-1 mt-0.5")(
-              span(cls := "font-code-lg text-code-lg text-on-surface font-bold", id := "insp-children")("0"),
-              span(cls := "font-label-sm text-label-sm text-on-surface-variant")("actors")
-            )
-          )
-        ),
-        div(cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col gap-space-xs")(
-          div(cls := "flex justify-between items-center")(
-            span(cls := "font-label-sm text-label-sm text-on-surface-variant uppercase")("Status"),
-            span(cls := "font-code-sm text-code-sm text-on-surface font-semibold", id := "insp-status-detail")("IDLE")
-          ),
-          div(cls := "w-full bg-surface-container-lowest h-1.5 rounded-full overflow-hidden")(
-            div(cls := "bg-secondary h-full w-0 transition-all duration-300", id := "insp-bar")
-          )
-        ),
-        div(
-          cls := "bg-surface-container-low p-space-sm rounded-lg flex flex-col gap-1 text-on-surface-variant font-label-sm text-label-sm"
-        )(
-          div(cls := "flex justify-between")(
-            span("Path:"),
-            span(cls := "text-on-surface font-code-sm text-code-sm truncate", id := "insp-full-path")("n/a")
-          ),
-          div(cls := "flex justify-between")(
-            span("Status:"),
-            span(cls := "text-secondary font-code-sm text-code-sm", id := "insp-status-text")("IDLE")
-          ),
-          div(cls := "flex justify-between")(
-            span("Is Idle:"),
-            span(cls := "text-on-surface font-code-sm text-code-sm", id := "insp-is-idle")("true")
-          )
-        )
-      )
-    )
-
-  private def renderMinimap(layout: List[LayoutNode], canvasH: Int): Tag = {
-    val mmW      = 128
-    val mmH      = 80
-    val maxX     = if layout.isEmpty then 1 else layout.map(_.x + nodeW).max
-    val scaleX   = mmW.toDouble / math.max(1, maxX)
-    val scaleY   = mmH.toDouble / math.max(1, canvasH)
-    val byPath   = layout.map(n => n.actor.path -> n).toMap
-    val dotColor = (actor: ActorSnapshot) =>
-      if actor.isTerminated then "#ffb4ab"
-      else if !actor.isIdle then "#d0bcff"
-      else "#4cd7f6"
-    val dots = layout.map { ln =>
-      val cx    = (ln.x + nodeW / 2) * scaleX
-      val cy    = (ln.y + nodeH / 2) * scaleY
-      val pulse = if ln.actor.mailboxSize > mailboxWarnAt then " class=\"animate-ping\"" else ""
-      s"""<circle cx="$cx" cy="$cy" r="2" fill="${dotColor(ln.actor)}"$pulse/>"""
-    }.mkString
-    val lines = layout.flatMap { ln =>
-      ln.actor.parentPath.flatMap(byPath.get).map { parent =>
-        val x1 = (parent.x + nodeW / 2) * scaleX
-        val y1 = (parent.y + nodeH / 2) * scaleY
-        val x2 = (ln.x + nodeW / 2) * scaleX
-        val y2 = (ln.y + nodeH / 2) * scaleY
-        s"""<line x1="$x1" y1="$y1" x2="$x2" y2="$y2" stroke="#3d494c" stroke-width="0.5"/>"""
-      }
-    }.mkString
-    div(
-      cls := "absolute bottom-space-md left-space-md bg-surface-container-low/90 backdrop-blur-md p-space-xs rounded-lg shadow-lg hidden md:flex flex-col gap-1 pointer-events-none"
-    )(
-      div(cls := "flex justify-between items-center px-1")(
-        span(cls := "font-label-sm text-label-sm text-on-surface-variant")("TOPOLOGY"),
-        span(cls := "w-1.5 h-1.5 rounded-full bg-secondary")
-      ),
-      svgTag(
-        attr("xmlns")   := "http://www.w3.org/2000/svg",
-        cls             := s"w-${mmW} h-${mmH} bg-surface-container-lowest rounded relative overflow-hidden",
-        attr("viewBox") := s"0 0 $mmW $mmH"
-      )(
-        raw(lines + dots)
-      )
-    )
-  }
-
   private def dagInteractionScript(snapshot: ActorTreeSnapshot): Tag = {
     val nodeDataEntries = snapshot.actors
       .map { a =>
@@ -367,11 +261,15 @@ object DagWidget {
         |(function() {
         |  const nodeData = {$nodeDataEntries};
         |  window.dagSelectNode = function(name) {
+        |    window.dagSelectedActor = name;
         |    document.querySelectorAll('.dag-node').forEach(n => {
         |      n.classList.remove('ring-2', 'ring-primary');
         |    });
         |    const sel = document.querySelector('[data-node="' + name + '"]');
         |    if (sel) sel.classList.add('ring-2', 'ring-primary');
+        |    updateInspector(name);
+        |  };
+        |  function updateInspector(name) {
         |    const d = nodeData[name];
         |    if (!d) return;
         |    const el = (id) => document.getElementById(id);
@@ -395,7 +293,14 @@ object DagWidget {
         |    if (el('insp-full-path')) el('insp-full-path').textContent = d.path;
         |    if (el('insp-status-text')) el('insp-status-text').textContent = d.status;
         |    if (el('insp-is-idle')) el('insp-is-idle').textContent = d.idle ? 'true' : 'false';
-        |  };
+        |  }
+        |  document.body.addEventListener('htmx:afterSwap', function(e) {
+        |    if (e.detail.target && e.detail.target.id === 'dag-content' && window.dagSelectedActor) {
+        |      const sel = document.querySelector('[data-node="' + window.dagSelectedActor + '"]');
+        |      if (sel) sel.classList.add('ring-2', 'ring-primary');
+        |      updateInspector(window.dagSelectedActor);
+        |    }
+        |  });
         |  const btnAll = document.getElementById('btn-filter-all');
         |  const btnTell = document.getElementById('btn-filter-tell');
         |  const btnAsk = document.getElementById('btn-filter-ask');
